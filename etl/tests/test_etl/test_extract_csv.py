@@ -1,8 +1,8 @@
 import pytest
 from pathlib import Path
 from datetime import datetime
-from etl.stages.extract.extract_csv import ExtractCsv
-from etl.contracts.extract_contract import ExtractContract
+from stages.extract.extract_csv import ExtractCsv
+from contracts.extract_contract import ExtractContract
 import pandas as pd
 import os
 

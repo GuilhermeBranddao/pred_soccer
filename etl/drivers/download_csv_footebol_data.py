@@ -6,7 +6,6 @@ def download_csv(
     output_dir="database/csv",
     list_all_divisions:list=[None])->bool:
 
-    return True
     # Lista de divisões e seus códigos
     list_all_divisions = {
         "Argentina": "ARG",
@@ -32,7 +31,7 @@ def download_csv(
 
     # Iterar sobre as divisões e baixar os arquivos
     for country, code in list_all_divisions.items():
-        file_url = f"{base_url}/{code}.csv"
+        file_url = os.path.join(base_url, f"{code}.csv")
         file_path = os.path.join(output_dir, f"{code}.csv")
         
         try:
@@ -45,7 +44,8 @@ def download_csv(
                 file.write(response.content)
             
             print(f"Download concluído: {file_path}")
-            return True
         except requests.RequestException as e:
             print(f"Erro ao baixar {file_url}: {e}")
             return False
+        
+    return True

@@ -268,7 +268,7 @@ def get_ls_winner(x, df):
     
     return result
 
-def create_main_cols(x, team, df, df_storage_ranks):
+def create_main_cols(x:pd.Series, team:str, df:pd.DataFrame, df_storage_ranks:pd.DataFrame):
     """
     OBJETIVO:
 

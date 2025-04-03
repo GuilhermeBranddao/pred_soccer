@@ -1,5 +1,5 @@
-from etl.drivers.download_csv_footebol_data import download_csv
-from etl.contracts.extract_contract import ExtractContract
+from drivers.download_csv_footebol_data import download_csv
+from contracts.extract_contract import ExtractContract
 import os
 from pathlib import Path
 import pandas as pd
@@ -25,7 +25,10 @@ class ExtractCsv:
         """
         # Verifica se o diretório existe
         if not path_base_download.exists():
-            raise FileNotFoundError(f"O diretório {path_base_download} não existe.")
+            path_base_download.mkdir(parents=True, exist_ok=True)
+            print(f"O diretório {path_base_download} foi criado.")
+            download_csv()
+            # raise FileNotFoundError(f"O diretório {path_base_download} não existe.")
 
         # Carrega os arquivos CSV em um dicionário
         information_content = self._load_csv_files(path=path_base_download)

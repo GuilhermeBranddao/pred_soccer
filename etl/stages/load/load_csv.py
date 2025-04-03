@@ -1,5 +1,5 @@
-from etl.contracts.transform_contract import TransformContract
-from etl.infra.database import insert_new_data
+from contracts.transform_contract import TransformContract
+from infra.database import insert_new_data
 
 class LoadCsv():
     def __init__(self, conn)->None:

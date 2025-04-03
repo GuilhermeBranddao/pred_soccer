@@ -1,0 +1,15 @@
+selenium
+ipykernel
+beautifulsoup4
+pandas
+pytest
+scikit-learn
+xgboost
+matplotlib
+imblearn
+missingno
+yellowbrick
+mplsoccer
+taskipy
+tqdm
+webdriver-manager

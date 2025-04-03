@@ -1,9 +1,9 @@
 from pathlib import Path
 import pandas as pd
-from etl.contracts.extract_contract import ExtractContract
-from etl.contracts.transform_contract import TransformContract
+from contracts.extract_contract import ExtractContract
+from contracts.transform_contract import TransformContract
 
-from etl.infra.database import create_connection, filter_new_data
+from infra.database import create_connection, filter_new_data
 
 class TransformCsv:
     """

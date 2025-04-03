@@ -1,8 +1,8 @@
-from etl.stages.transform.transform_csv import TransformCsv
-from etl.stages.extract.extract_csv import ExtractCsv
-from etl.stages.load.load_csv import LoadCsv
+from stages.transform.transform_csv import TransformCsv
+from stages.extract.extract_csv import ExtractCsv
+from stages.load.load_csv import LoadCsv
 
-from etl.infra.database import create_connection
+from infra.database import create_connection
 from pathlib import Path
 
 
