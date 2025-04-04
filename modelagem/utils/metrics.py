@@ -80,6 +80,29 @@ def calc_precision(tp: Union[int, np.ndarray], fp: Union[int, np.ndarray]) -> Un
     precision = np.where((tp + fp) == 0, 0.0, np.round(tp / (tp + fp), 2))
     return precision.item() if precision.size == 1 else precision
 
+def get_balanced_accuracy(tp, tn, fp, fn):
+    """
+    Calcula a acurácia balanceada, que é a média da sensibilidade e especificidade.
+
+    Retorno
+    -------
+    float
+        Acurácia balanceada.
+    """
+    # Exemplo de valores para TP, TN, FP e FN
+
+    ((tp+fn) / tp) + ((tn+fp) / tn)
+
+    # Cálculo da sensibilidade (recall)
+    sensitivity = calc_recall(tp, fn)
+
+    # Cálculo da especificidade
+    specificity = calc_recall(tn, fp)
+
+    # Cálculo da acurácia balanceada
+    balanced_accuracy = (sensitivity + specificity) / 2
+
+    return balanced_accuracy
 
 def metrics_per_class(df_preds: pd.DataFrame, classe: Union[int, str]) -> dict:
     """
@@ -97,12 +120,80 @@ def metrics_per_class(df_preds: pd.DataFrame, classe: Union[int, str]) -> dict:
     dict
         Dicionário com precisão, recall e F1-score da classe.
     """
+    # True Positives (TP): Previsão correta de que a instância pertence à classe (ou seja, y_pred == classe e y_true == classe).
     tp = ((df_preds['y_pred'] == classe) & (df_preds['y_true'] == classe)).sum()
+
+    # True Negatives (TN): Previsão correta de que a instância não pertence à classe (ou seja, y_pred != classe e y_true != classe).
+    tn = ((df_preds['y_pred'] != classe) & (df_preds['y_true'] != classe)).sum()
+
+
+    # False Positives (FP): Previsão errada de que a instância pertence à classe, quando na verdade não pertence (ou seja, y_pred == classe e y_true != classe).
     fp = ((df_preds['y_pred'] == classe) & (df_preds['y_true'] != classe)).sum()
+
+    # False Negatives (FN): Previsão errada de que a instância não pertence à classe, quando na verdade pertence (ou seja, y_pred != classe e y_true == classe).
     fn = ((df_preds['y_pred'] != classe) & (df_preds['y_true'] == classe)).sum()
+
 
     precision = calc_precision(tp, fp)
     recall = calc_recall(tp, fn)
     f1 = calc_f1(precision, recall)
 
-    return {"precision": precision, "recall": recall, "F1": f1}
+    return {"precision": precision, 
+            "recall": recall, 
+            "F1": f1}
+
+
+
+####################### 
+
+def show_print_precision_multiclass(precision_multiclass, algorithm_name=''):
+    """
+        Exibe de uma baneira mais visual as metricas de precisão
+    """
+    home_team_precision = precision_multiclass.get(2, 0)
+    draw_precision = precision_multiclass.get(0, 0)
+    away_team_precision = precision_multiclass.get(1, 0)
+
+    print(f'''Reultados: ({algorithm_name})
+    Home_team: ------ {round(home_team_precision*100, 2)}%
+    Draw: ----------- {round(draw_precision*100, 2)}%
+    Away_team: ------ {round(away_team_precision*100, 2)}%
+    ----------------------------''')
+
+def get_precision(y_pred:list, y_true:list):
+    """
+    Objetivo: Obtem a precisão
+
+    Calcular a precisão: TP / (TP + FP)
+    """
+    all_predicted = len(y_true)
+    true_positives = sum(y_pred == y_true)
+    precision = true_positives / all_predicted
+
+    return precision
+
+def get_precision_multiclass(metrics_multiclass):
+    return {metrics:metrics_multiclass[metrics]['precision'] for metrics in metrics_multiclass}
+
+def get_metrics_multiclass(y_pred:list, y_true:list):
+    """ 
+
+    Realiza o calculo de varias metricas para cada classe
+
+    Calcular a precisão: TP / (TP + FP)
+
+    RETURN: {np.int64(0): 0.33, np.int64(2): 0.57, np.int64(1): 0.3}
+    """
+    df_preds = pd.DataFrame(columns=['y_pred', 'y_true'])
+    df_preds['y_pred'] = y_pred
+    df_preds['y_true'] = y_true
+
+    dict_precision = {}
+
+    for classe in df_preds['y_true'].unique():
+        dict_metrics_per_class = metrics_per_class(df_preds, classe)
+
+        #precision, recal, F1
+        dict_precision[classe] = dict_metrics_per_class
+
+    return dict_precision
