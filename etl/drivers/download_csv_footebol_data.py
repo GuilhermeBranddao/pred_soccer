@@ -6,25 +6,7 @@ def download_csv(
     output_dir="database/csv",
     list_all_divisions:list=[None])->bool:
 
-    # Lista de divisões e seus códigos
-    list_all_divisions = {
-        "Argentina": "ARG",
-        "Áustria": "AUT",
-        "Brasil": "BRA",
-        "China": "CHN",
-        "Dinamarca": "DNK",
-        "Finlândia": "FIN",
-        "Irlanda": "IRL",
-        "Japão": "JPN",
-        "México": "MEX",
-        "Noruega": "NOR",
-        "Polônia": "POL",
-        "Romênia": "ROU",
-        "Rússia": "RUS",
-        "Suécia": "SWE",
-        "Suíça": "CHE",
-        "EUA": "USA"
-    }
+    
 
     # Criar o diretório se não existir
     os.makedirs(output_dir, exist_ok=True)

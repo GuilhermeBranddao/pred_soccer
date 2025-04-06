@@ -127,7 +127,7 @@ def filter_new_data(conn, df:DataFrame):
     Returns:
         DataFrame: Dados filtrados contendo apenas os registros que não existem no banco.
     """
-
+    df = df.copy()
     # Gerar hashes para os dados do DataFrame
     df['hash'] = pd.util.hash_pandas_object(df[['country', 'league', 'home_team', 'away_team', 'datetime']].astype(str), index=False).astype(str)
     

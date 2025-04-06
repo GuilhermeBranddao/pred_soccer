@@ -27,8 +27,28 @@ class ExtractCsv:
         if not path_base_download.exists():
             path_base_download.mkdir(parents=True, exist_ok=True)
             print(f"O diretório {path_base_download} foi criado.")
-            download_csv()
             # raise FileNotFoundError(f"O diretório {path_base_download} não existe.")
+
+        # Lista de divisões e seus códigos
+        list_all_divisions = {
+            # "Argentina": "ARG",
+            # "Áustria": "AUT",
+            "Brasil": "BRA",
+            # "China": "CHN",
+            # "Dinamarca": "DNK",
+            # "Finlândia": "FIN",
+            # "Irlanda": "IRL",
+            # "Japão": "JPN",
+            # "México": "MEX",
+            # "Noruega": "NOR",
+            # "Polônia": "POL",
+            # "Romênia": "ROU",
+            # "Rússia": "RUS",
+            # "Suécia": "SWE",
+            # "Suíça": "CHE",
+            # "EUA": "USA"
+        }
+        download_csv(list_all_divisions=list_all_divisions)
 
         # Carrega os arquivos CSV em um dicionário
         information_content = self._load_csv_files(path=path_base_download)
