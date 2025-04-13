@@ -15,14 +15,15 @@ import numpy as np
 from typing import Union, List, Dict
 from modelagem.utils.metrics import metrics_per_class
 from sklearn.model_selection import train_test_split
-
+import json
 
 BASE_DIR = os.path.dirname(Path(__file__).resolve().parent)
-DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
+# DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
+FT_DIR = Path("features", 'ft_df.csv')
 MODEL_DIR = os.path.join(os.path.dirname(BASE_DIR), 'database', 'models')
 LOG_DIR = os.path.join(os.path.dirname(BASE_DIR), 'logs')
 
-df = pd.read_csv(DATA_DIR)
+# df = pd.read_csv(FT_DIR)
 
 def balancear_dados(X, y, mode='subamostragem', sampling_strategy='auto', random_state=42):
     """
@@ -269,7 +270,6 @@ def main(df:pd.DataFrame):
     X_test, y_test = df_test.drop(columns=['winner', 'season']), df_test['winner']
     X_valid, y_valid = df_valid.drop(columns=['winner', 'season']), df_valid['winner']
 
-    return df_train
     # Balanceamento dos dados
     # X_train, y_train = balancear_dados(X=X_train, y=y_train)
 
@@ -281,9 +281,176 @@ def main(df:pd.DataFrame):
     model = LogisticRegression(max_iter=30000)
     model = train(model, X_train_scaled, X_test_scaled, y_train, y_test)
 
+    # 
+    with open(os.path.join(MODEL_DIR, "feature_order.json"), "w") as f:
+        json.dump(list(X_train.columns), f)
+
+
     # Salvar o modelo treinado
     model_filename = os.path.join(MODEL_DIR, "logistic_regression_model.pkl")
     with open(model_filename, 'wb') as file:
         pickle.dump(model, file)
 
     logger.info(f"Modelo salvo com sucesso em: {model_filename}")
+
+def load_model(model_filename):
+    """
+    Carrega o modelo treinado a partir do arquivo.
+
+    :param model_filename: str
+        Caminho do arquivo do modelo.
+    :return: LogisticRegression
+        Modelo treinado.
+
+    """
+    
+    
+    with open(model_filename, 'rb') as file:
+        model = pickle.load(file)
+
+    logger.info(f"Modelo carregado com sucesso de: {model_filename}")
+    
+    return model
+
+
+###### Predições
+
+def is_float(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+def is_int(value):
+    try:
+        int(value)
+        return True
+    except ValueError:
+        return False
+
+def is_numeric(value):
+    return is_float(value) or is_int(value)
+
+def load_json(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def get_team_mappings(team_mapping_json):
+    return (
+        {k: v for k, v in team_mapping_json.items()},
+        {v: k for k, v in team_mapping_json.items()}
+    )
+
+def get_drop_columns():
+    template = [
+        "{type}_rank", "{type}_ls_rank", "{type}_days_ls_match", "{type}_points",
+        "{type}_l_points", "{type}_l_wavg_points", "{type}_goals", "{type}_l_goals",
+        "{type}_l_wavg_goals", "{type}_goals_sf", "{type}_l_goals_sf", "{type}_l_wavg_goals_sf",
+        "{type}_wins", "{type}_draws", "{type}_losses", "{type}_win_streak",
+        "{type}_loss_streak", "{type}_draw_streak", "winner"
+    ]
+    drop_at = [col.format(type="at") for col in template] + ["away_team_encoder"]
+    drop_ht = [col.format(type="ht") for col in template] + ["home_team_encoder"]
+    return drop_ht, drop_at
+
+def prepare_input(df_prep, home_team:str, away_team:str, team_mapping, feature_order):
+
+    df_prep.sort_values(by=["season"], ascending=False, inplace=True)
+
+    dict_team_name_id, dict_id_team_name = get_team_mappings(team_mapping)
+    drop_ht, drop_at = get_drop_columns()
+
+    if is_numeric(home_team):
+        home_team = dict_id_team_name.get(int(float(home_team)))
+    if is_numeric(away_team):
+        away_team = dict_id_team_name.get(int(float(away_team)))
+    
+    if home_team is None or away_team is None:
+        raise ValueError("Os times fornecidos não estão no mapeamento.")
+    if home_team == away_team:
+        raise ValueError("Os times fornecidos são iguais.")
+
+    df_home = df_prep[df_prep["home_team_encoder"] == dict_team_name_id[home_team]].drop(columns=drop_at).copy()
+    df_away = df_prep[df_prep["away_team_encoder"] == dict_team_name_id[away_team]].drop(columns=drop_ht).copy()
+
+    df_merge = pd.concat([df_home.iloc[[0]].reset_index(drop=True), df_away.iloc[[0]].reset_index(drop=True)], axis=1)
+    df_merge.drop(columns="season", inplace=True, errors="ignore")
+    df_merge = df_merge[feature_order]
+
+    return df_merge
+
+def predict_per_time(home_team:str, 
+                     away_team:str,
+                     list_seasons:list[int]=None,
+                     model=None, 
+                     df_prep=None, 
+                     team_mapping_json=None,
+                     feature_order_json=None):
+    """
+    Faz previsões para um jogo específico entre dois times.
+
+    Parameters
+    ----------
+    home_team : str
+        Nome do time da casa.
+    away_team : str
+        Nome do time visitante.
+    model : LogisticRegression
+        Modelo treinado.
+    df_prep : pd.DataFrame
+        DataFrame com os dados preparados.
+    team_mapping_json : str
+        Caminho para o arquivo JSON com o mapeamento dos times.
+
+    Returns
+    -------
+    np.ndarray
+        Previsões do modelo para o jogo especificado.
+    """
+
+    if model is None:
+        model = load_model(os.path.join(MODEL_DIR, "logistic_regression_model.pkl"))
+    if df_prep is None:
+        df_prep = pd.read_csv(FT_DIR)
+    if team_mapping_json is None:
+        team_mapping_json = os.path.join(MODEL_DIR, "team_mapping.json")
+    if feature_order_json is None:
+        feature_order_json = os.path.join(MODEL_DIR, "feature_order.json")
+
+    team_mapping = load_json(team_mapping_json)
+    
+    feature_order = load_json(feature_order_json)
+
+    if list_seasons is not None:
+        df_prep = df_prep[df_prep["season"].isin(list_seasons)]
+
+    df_input = prepare_input(df_prep, home_team, away_team, team_mapping, feature_order)
+    
+    # df_input_scaled = get_data_transform(df_input)
+    predictions, predictions_proba = predict(model, df_input)
+    
+    return predictions[0], predictions_proba[0]
+
+
+def predict(model, df_input) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Faz previsões usando o modelo carregado.
+
+    Parameters
+    ----------
+    model : LogisticRegression
+        Modelo treinado.
+    X : pd.DataFrame
+        Dados para previsão.
+
+    Returns
+    -------
+    np.ndarray
+        Previsões do modelo.
+    """
+    predictions = model.predict(df_input)
+    predictions_proba = model.predict_proba(df_input)
+
+    return predictions, predictions_proba
+

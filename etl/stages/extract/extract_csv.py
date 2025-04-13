@@ -1,5 +1,5 @@
-from drivers.download_csv_footebol_data import download_csv
-from contracts.extract_contract import ExtractContract
+from etl.drivers.download_csv_footebol_data import download_csv
+from etl.contracts.extract_contract import ExtractContract
 import os
 from pathlib import Path
 import pandas as pd

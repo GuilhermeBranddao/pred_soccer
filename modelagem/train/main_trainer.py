@@ -10,7 +10,8 @@ import sqlite3
 from pathlib import Path
 from modelagem.feature_eng.match_analysis import get_storage_ranks, create_main_cols
 
-from database.create_connection import create_connection
+# from database.create_connection import create_connection
+from etl.infra.database import create_connection
 from modelagem.utils.preprocessing.engine import base_pre_processing
 from modelagem.utils.logs import logger
 from modelagem.train import model_trainer
@@ -69,12 +70,12 @@ def get_soccer_data(country:str = "Brazil") -> pd.DataFrame | None:
 
 
 if __name__ == "__main__":
-    # df = get_soccer_data()
-    # success = base_pre_processing(df)
-    # if success:
-    #     logger.info("Pré-processamento concluído com sucesso!")
-    # else:
-    #     logger.error("Erro no pré-processamento.")
+    df = get_soccer_data()
+    success = base_pre_processing(df)
+    if success:
+        logger.info("Pré-processamento concluído com sucesso!")
+    else:
+        logger.error("Erro no pré-processamento.")
 
     df = pd.read_csv(os.path.join(DATA_DIR, 'ft_df.csv'))
     logger.info("Iniciando treinamento")

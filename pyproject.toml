@@ -31,4 +31,5 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.taskipy.tasks]
-train = "python modelagem/train/main_trainer.py"
+train = "python -m modelagem.train.main_trainer"
+etl = "python -m etl.main"

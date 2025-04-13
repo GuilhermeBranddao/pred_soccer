@@ -6,7 +6,10 @@ from sklearn.preprocessing import LabelEncoder
 import pandas as pd
 from modelagem.feature_eng.match_analysis import get_storage_ranks, create_main_cols
 from modelagem.utils.logs import logger
-
+# Função para encoding dos times
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+import json
 
 # Definindo diretórios base
 # BASE_DIR = Path(__file__).resolve().parent
@@ -15,7 +18,7 @@ from modelagem.utils.logs import logger
 # LOG_DIR = DATA_DIR / 'logs'
 
 BASE_DIR = os.path.dirname(Path(__file__).resolve().parent)
-DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
+# DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
 MODEL_DIR = os.path.join(os.path.dirname(BASE_DIR), 'database', 'models')
 LOG_DIR = os.path.join(os.path.dirname(BASE_DIR), 'logs')
 
@@ -23,22 +26,46 @@ LOG_DIR = os.path.join(os.path.dirname(BASE_DIR), 'logs')
 FT_DIR = Path("features")
 LOG_DIR = Path("logs")
 
-# Função para encoding dos times
-def encode_teams(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()  # Faz uma cópia explícita para evitar warnings
-    
+
+
+def encode_teams(df: pd.DataFrame, mapping_path: str = 'team_mapping.json') -> pd.DataFrame:
+    """
+    Codifica os times usando Label Encoding e salva o mapeamento de-para em um arquivo JSON.
+
+    :param df: DataFrame contendo os dados das partidas.
+    :param mapping_path: Caminho do arquivo onde o mapeamento será salvo.
+    :return: DataFrame com colunas adicionais para os times codificados.
+    """
+    df = df.copy()
+
     label_encoder = LabelEncoder()
     all_teams = pd.concat([df['home_team'], df['away_team']])
     label_encoder.fit(all_teams)
 
+    # Codifica os times
     df['home_team_encoder'] = label_encoder.transform(df['home_team'])
     df['away_team_encoder'] = label_encoder.transform(df['away_team'])
 
+    # Cria e salva o mapeamento
+    mapping = {team: int(code) for team, code in zip(label_encoder.classes_, range(len(label_encoder.classes_)))}
+    
+    with open(mapping_path, 'w', encoding='utf-8') as f:
+        json.dump(mapping, f, ensure_ascii=False, indent=4)
+
     return df
+
 
 # Função para calcular vencedores e pontos
 def calculate_match_points(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()  # Evita o warning
+    """
+    Função para calcular o vencedor de uma partida e os pontos correspondentes.
+    Ela adiciona colunas ao DataFrame original para indicar o vencedor e os pontos ganhos por cada time.
+
+    :param df: DataFrame contendo os dados das partidas.
+    :return: DataFrame com colunas adicionais para o vencedor e os pontos.
+    """
+    
+    df = df.copy()
 
     dict_result = {'DRAW': 0, 'AWAY_WIN': 1, 'HOME_WIN': 2}
     
@@ -66,14 +93,30 @@ def calculate_match_points(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 # Função principal
-def base_pre_processing(df:pd.DataFrame):
+def base_pre_processing(df:pd.DataFrame)->tuple[bool, str|pd.DataFrame]:
+    """
+    Função para pré-processar os dados de futebol.
+    Ela realiza as seguintes etapas:
+    1. Carrega os dados de um DataFrame.
+    2. Cria colunas iniciais, como 'match_name' e 'datetime'.
+    3. Seleciona colunas importantes para análise.
+    4. Converte colunas para o tipo inteiro.
+    5. Realiza o encoding dos times.
+    6. Calcula os pontos e resultados das partidas.
+    7. Realiza feature engineering para criar novas colunas.
+    8. Salva o DataFrame resultante em um arquivo CSV.
+    9. Retorna True se o pré-processamento for bem-sucedido, caso contrário, retorna False.
+    
+    :param df: DataFrame contendo os dados das partidas.
+    :return: True se o pré-processamento for bem-sucedido, False caso contrário.
+    """
     df = df.copy()  # Evita o warning
 
     logger.info("Iniciando pré-processamento dos dados...")
     
     if df is None or df.empty:
         logger.error("Nenhum dado foi carregado. Encerrando pré-processamento.")
-        return False
+        return False, 'Nenhum dado foi carregado'
 
     try:
         # Criando colunas iniciais
@@ -89,9 +132,11 @@ def base_pre_processing(df:pd.DataFrame):
         df[to_int] = df[to_int].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
 
         # Encoding dos times
+        logger.debug("Iniciando o encoding dos times.")
         df = encode_teams(df)
 
         # Calculando pontos e resultado das partidas
+        logger.debug("Iniciando o cálculo dos pontos e resultados das partidas.")
         df = calculate_match_points(df)
 
         # Reordenando colunas
@@ -101,6 +146,7 @@ def base_pre_processing(df:pd.DataFrame):
         df = df[cols_order]
 
         # Feature Engineering
+        logger.debug("Iniciando o feature engineering.")
         df_storage_ranks = get_storage_ranks(df)
 
         logger.debug("Iniciando o feature engineering do time da casa.")
@@ -117,16 +163,17 @@ def base_pre_processing(df:pd.DataFrame):
         df.fillna(-33, inplace=True)  # Preenchendo valores ausentes
         
         # Salvando resultados
+        logger.debug("Salvando o DataFrame resultante.")
         os.makedirs(FT_DIR, exist_ok=True)
         output_path = os.path.join(FT_DIR, 'ft_df.csv')
         df.to_csv(output_path, index=False)
         
         logger.info(f"Feature DataFrame salvo em {output_path}")
-        return True
+        return True, df
 
     except Exception as e:
         logger.error(f"Erro no pré-processamento: {e}", exc_info=True)
-        return False
+        return False, 'Erro no pré-processamento'
 
 
 def get_feature_columns():
