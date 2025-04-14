@@ -12,28 +12,18 @@ from sklearn.preprocessing import LabelEncoder
 import json
 
 # Definindo diretórios base
-# BASE_DIR = Path(__file__).resolve().parent
-# DATA_DIR = BASE_DIR / 'database'
-# FT_DIR = BASE_DIR / 'modelagem' / 'feature_eng' / 'data'
-# LOG_DIR = DATA_DIR / 'logs'
-
-BASE_DIR = os.path.dirname(Path(__file__).resolve().parent)
-# DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
-MODEL_DIR = os.path.join(os.path.dirname(BASE_DIR), 'database', 'models')
-LOG_DIR = os.path.join(os.path.dirname(BASE_DIR), 'logs')
-
-# Diretórios
+MODEL_DIR = os.path.join('database', 'models')
+LOG_DIR = os.path.join('logs')
 FT_DIR = Path("features")
 LOG_DIR = Path("logs")
 
 
-
-def encode_teams(df: pd.DataFrame, mapping_path: str = 'team_mapping.json') -> pd.DataFrame:
+def encode_teams(df: pd.DataFrame, path_team_mapping: str) -> pd.DataFrame:
     """
     Codifica os times usando Label Encoding e salva o mapeamento de-para em um arquivo JSON.
 
     :param df: DataFrame contendo os dados das partidas.
-    :param mapping_path: Caminho do arquivo onde o mapeamento será salvo.
+    :param path_team_mapping: Caminho do arquivo onde o mapeamento será salvo.
     :return: DataFrame com colunas adicionais para os times codificados.
     """
     df = df.copy()
@@ -47,10 +37,10 @@ def encode_teams(df: pd.DataFrame, mapping_path: str = 'team_mapping.json') -> p
     df['away_team_encoder'] = label_encoder.transform(df['away_team'])
 
     # Cria e salva o mapeamento
-    mapping = {team: int(code) for team, code in zip(label_encoder.classes_, range(len(label_encoder.classes_)))}
+    json_team_mapping = {team: int(code) for team, code in zip(label_encoder.classes_, range(len(label_encoder.classes_)))}
     
-    with open(mapping_path, 'w', encoding='utf-8') as f:
-        json.dump(mapping, f, ensure_ascii=False, indent=4)
+    with open(path_team_mapping, 'w', encoding='utf-8') as f:
+        json.dump(json_team_mapping, f, ensure_ascii=False, indent=4)
 
     return df
 
@@ -133,7 +123,8 @@ def base_pre_processing(df:pd.DataFrame)->tuple[bool, str|pd.DataFrame]:
 
         # Encoding dos times
         logger.debug("Iniciando o encoding dos times.")
-        df = encode_teams(df)
+        df = encode_teams(df,
+                          path_team_mapping=os.path.join(MODEL_DIR, "team_mapping.json"))
 
         # Calculando pontos e resultado das partidas
         logger.debug("Iniciando o cálculo dos pontos e resultados das partidas.")
@@ -161,8 +152,9 @@ def base_pre_processing(df:pd.DataFrame)->tuple[bool, str|pd.DataFrame]:
                          'home_score', 'away_score', 'h_match_points', 'a_match_points'], inplace=True)
 
         df.fillna(-33, inplace=True)  # Preenchendo valores ausentes
-        
+
         # Salvando resultados
+
         logger.debug("Salvando o DataFrame resultante.")
         os.makedirs(FT_DIR, exist_ok=True)
         output_path = os.path.join(FT_DIR, 'ft_df.csv')

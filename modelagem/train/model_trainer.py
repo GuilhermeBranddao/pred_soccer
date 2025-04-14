@@ -17,12 +17,15 @@ from modelagem.utils.metrics import metrics_per_class
 from sklearn.model_selection import train_test_split
 import json
 
-BASE_DIR = os.path.dirname(Path(__file__).resolve().parent)
+# BASE_DIR = os.path.dirname(Path(__file__).resolve().parent.parent)
 # DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
-FT_DIR = Path("features", 'ft_df.csv')
-MODEL_DIR = os.path.join(os.path.dirname(BASE_DIR), 'database', 'models')
-LOG_DIR = os.path.join(os.path.dirname(BASE_DIR), 'logs')
+FT_DIR = Path("database", "features", 'ft_df.csv')
+LOG_DIR = os.path.join('database', 'logs')
 
+
+# MODEL_DIR = os.path.join('database', 'models')
+MODEL_DIR = Path("database", "models")  # Diretório onde os modelos serão salvos
+MODEL_DIR.mkdir(exist_ok=True)  # Garante que o diretório exista
 # df = pd.read_csv(FT_DIR)
 
 def balancear_dados(X, y, mode='subamostragem', sampling_strategy='auto', random_state=42):
@@ -259,8 +262,6 @@ def main(df:pd.DataFrame):
         DataFrame contendo os dados.
     """
 
-    MODEL_DIR = Path("models")  # Diretório onde os modelos serão salvos
-    MODEL_DIR.mkdir(exist_ok=True)  # Garante que o diretório exista
 
     # Divisão dos dados
     df_train, df_test, df_valid = split_data(df)
@@ -274,17 +275,18 @@ def main(df:pd.DataFrame):
     # X_train, y_train = balancear_dados(X=X_train, y=y_train)
 
     # Transformação dos dados
-    X_train_scaled = get_data_transform(X_train)
-    X_test_scaled = get_data_transform(X_test)
+    # X_train_scaled = get_data_transform(X_train)
+    # X_test_scaled = get_data_transform(X_test)
 
+    X_train_scaled = X_train
+    X_test_scaled = X_test
+    
     # Inicializa e treina o modelo
     model = LogisticRegression(max_iter=30000)
     model = train(model, X_train_scaled, X_test_scaled, y_train, y_test)
 
-    # 
-    with open(os.path.join(MODEL_DIR, "feature_order.json"), "w") as f:
-        json.dump(list(X_train.columns), f)
-
+    # Salva ordem das features appos o treinamento
+    with open(os.path.join(MODEL_DIR, "feature_order.json"), "w") as f: json.dump(list(X_train.columns), f, indent=4)
 
     # Salvar o modelo treinado
     model_filename = os.path.join(MODEL_DIR, "logistic_regression_model.pkl")
@@ -332,14 +334,36 @@ def is_int(value):
 def is_numeric(value):
     return is_float(value) or is_int(value)
 
-def load_json(path):
+def load_json(path:str):
+    """
+    Carrega um arquivo JSON e retorna seu conteúdo.
+
+    Parameters
+    ----------
+        path (str)
+            Caminho do arquivo JSON.
+    
+    Returns:
+        any: Conteúdo do arquivo JSON.
+    """
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def get_team_mappings(team_mapping_json):
+def get_team_mappings(path_team_mapping:str) -> tuple[dict, dict]:
+    """
+    Carrega o mapeamento de times a partir de um arquivo JSON.
+    :param path_team_mapping: str
+        Caminho do arquivo JSON com o mapeamento de times.
+    :return: tuple
+        - dict_team_name_to_id: dicionário com o mapeamento de nomes de times para IDs.
+        - dict_id_team_name: dicionário com o mapeamento de IDs para nomes de times.
+    """
+
+    dict_team_name_to_id = load_json(path_team_mapping)
+
     return (
-        {k: v for k, v in team_mapping_json.items()},
-        {v: k for k, v in team_mapping_json.items()}
+        {k: v for k, v in dict_team_name_to_id.items()},
+        {v: k for k, v in dict_team_name_to_id.items()}
     )
 
 def get_drop_columns():
@@ -354,11 +378,39 @@ def get_drop_columns():
     drop_ht = [col.format(type="ht") for col in template] + ["home_team_encoder"]
     return drop_ht, drop_at
 
-def prepare_input(df_prep, home_team:str, away_team:str, team_mapping, feature_order):
+def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_team_mapping:str, path_feature_order:str) -> pd.DataFrame:
+    """
+    Prepara os dados de entrada para o modelo de previsão.
+
+    Essa função filtra, ajusta e reordena os dados dos times da casa e visitante
+    para que estejam no formato correto que o modelo espera.
+
+    ---
+
+    Parameters:
+        df_prep (pd.DataFrame): 
+            DataFrame com os dados preparados dos jogos.
+        home_team (str): 
+            Nome do time da casa.
+        away_team (str): 
+            Nome do time visitante.
+        path_team_mapping (str): 
+            Caminho para o arquivo JSON com o mapeamento dos times.
+        path_feature_order (str): 
+            Caminho para o arquivo JSON com a ordem esperada das features.
+
+    ---
+
+    Returns:
+        pd.DataFrame: Um DataFrame com uma única linha contendo as features do confronto,
+                      prontas para serem usadas no modelo.
+    """
 
     df_prep.sort_values(by=["season"], ascending=False, inplace=True)
 
-    dict_team_name_id, dict_id_team_name = get_team_mappings(team_mapping)
+    list_feature_order:list[str] = load_json(path_feature_order)
+
+    dict_team_name_id, dict_id_team_name = get_team_mappings(path_team_mapping)
     drop_ht, drop_at = get_drop_columns()
 
     if is_numeric(home_team):
@@ -376,7 +428,7 @@ def prepare_input(df_prep, home_team:str, away_team:str, team_mapping, feature_o
 
     df_merge = pd.concat([df_home.iloc[[0]].reset_index(drop=True), df_away.iloc[[0]].reset_index(drop=True)], axis=1)
     df_merge.drop(columns="season", inplace=True, errors="ignore")
-    df_merge = df_merge[feature_order]
+    df_merge = df_merge[list_feature_order]
 
     return df_merge
 
@@ -385,8 +437,8 @@ def predict_per_time(home_team:str,
                      list_seasons:list[int]=None,
                      model=None, 
                      df_prep=None, 
-                     team_mapping_json=None,
-                     feature_order_json=None):
+                     path_team_mapping=None,
+                     path_feature_order=None):
     """
     Faz previsões para um jogo específico entre dois times.
 
@@ -400,7 +452,7 @@ def predict_per_time(home_team:str,
         Modelo treinado.
     df_prep : pd.DataFrame
         DataFrame com os dados preparados.
-    team_mapping_json : str
+    path_team_mapping : str
         Caminho para o arquivo JSON com o mapeamento dos times.
 
     Returns
@@ -413,21 +465,18 @@ def predict_per_time(home_team:str,
         model = load_model(os.path.join(MODEL_DIR, "logistic_regression_model.pkl"))
     if df_prep is None:
         df_prep = pd.read_csv(FT_DIR)
-    if team_mapping_json is None:
-        team_mapping_json = os.path.join(MODEL_DIR, "team_mapping.json")
-    if feature_order_json is None:
-        feature_order_json = os.path.join(MODEL_DIR, "feature_order.json")
-
-    team_mapping = load_json(team_mapping_json)
-    
-    feature_order = load_json(feature_order_json)
+    if path_team_mapping is None:
+        path_team_mapping = os.path.join(MODEL_DIR, "team_mapping.json")
+    if path_feature_order is None:
+        path_feature_order = os.path.join(MODEL_DIR, "feature_order.json")
 
     if list_seasons is not None:
         df_prep = df_prep[df_prep["season"].isin(list_seasons)]
 
-    df_input = prepare_input(df_prep, home_team, away_team, team_mapping, feature_order)
+    df_input = prepare_input(df_prep, home_team, away_team, path_team_mapping, path_feature_order)
     
-    # df_input_scaled = get_data_transform(df_input)
+    # X_pred_scaled = get_data_transform(df_input)
+    
     predictions, predictions_proba = predict(model, df_input)
     
     return predictions[0], predictions_proba[0]
