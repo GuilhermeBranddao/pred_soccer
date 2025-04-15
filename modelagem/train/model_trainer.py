@@ -282,12 +282,14 @@ def main(df:pd.DataFrame):
     X_test_scaled = X_test
     
     # Inicializa e treina o modelo
-    model = LogisticRegression(max_iter=30000)
+    model = LogisticRegression(max_iter=3000)
     model = train(model, X_train_scaled, X_test_scaled, y_train, y_test)
 
     # Salva ordem das features appos o treinamento
-    with open(os.path.join(MODEL_DIR, "feature_order.json"), "w") as f: json.dump(list(X_train.columns), f, indent=4)
+    with open(os.path.join(MODEL_DIR, "feature_order.json"), "w") as f: 
+        json.dump(list(X_train.columns), f, indent=4)
 
+    print(X_train.columns)
     # Salvar o modelo treinado
     model_filename = os.path.join(MODEL_DIR, "logistic_regression_model.pkl")
     with open(model_filename, 'wb') as file:
@@ -378,7 +380,9 @@ def get_drop_columns():
     drop_ht = [col.format(type="ht") for col in template] + ["home_team_encoder"]
     return drop_ht, drop_at
 
-def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_team_mapping:str, path_feature_order:str) -> pd.DataFrame:
+from modelagem.utils.feature.create_features import add_head_to_head_features
+
+def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_encoder:str, path_feature_order:str) -> pd.DataFrame:
     """
     Prepara os dados de entrada para o modelo de previsão.
 
@@ -394,7 +398,7 @@ def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_team_
             Nome do time da casa.
         away_team (str): 
             Nome do time visitante.
-        path_team_mapping (str): 
+        path_encoder (str): 
             Caminho para o arquivo JSON com o mapeamento dos times.
         path_feature_order (str): 
             Caminho para o arquivo JSON com a ordem esperada das features.
@@ -410,8 +414,7 @@ def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_team_
 
     list_feature_order:list[str] = load_json(path_feature_order)
 
-    dict_team_name_id, dict_id_team_name = get_team_mappings(path_team_mapping)
-    drop_ht, drop_at = get_drop_columns()
+    dict_team_name_id, dict_id_team_name = get_team_mappings(os.path.join(path_encoder, "team_mapping.json"))
 
     if is_numeric(home_team):
         home_team = dict_id_team_name.get(int(float(home_team)))
@@ -423,11 +426,61 @@ def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_team_
     if home_team == away_team:
         raise ValueError("Os times fornecidos são iguais.")
 
-    df_home = df_prep[df_prep["home_team_encoder"] == dict_team_name_id[home_team]].drop(columns=drop_at).copy()
-    df_away = df_prep[df_prep["away_team_encoder"] == dict_team_name_id[away_team]].drop(columns=drop_ht).copy()
+
+    drop_mix_columns = [
+        "is_weekend",
+        "month",
+        "days_since_last_match_home",
+        "match_importance",
+        "goal_avg_diff",
+        "win_rate_diff",
+        "ranking_diff",
+        "match_day_of_week_encoder",
+        "season_phase_encoder",
+        "head_to_head_win_home_team",
+        "head_to_head_draws",
+        "head_to_head_goal_diff",
+    ]
+
+    columns_with_home = [col for col in df_prep.columns if "home" in col]
+    columns_with_away = [col for col in df_prep.columns if "away" in col]
+
+    columns_with_home += drop_mix_columns
+    columns_with_away += drop_mix_columns
+
+    # TDOD: mesmo esquema drop_columns_at e drop_columns_ht
+    df_home = df_prep[df_prep["home_team_encoder"] == dict_team_name_id[home_team]].drop(columns=columns_with_home).copy()
+    df_away = df_prep[df_prep["away_team_encoder"] == dict_team_name_id[away_team]].drop(columns=columns_with_away).copy()
 
     df_merge = pd.concat([df_home.iloc[[0]].reset_index(drop=True), df_away.iloc[[0]].reset_index(drop=True)], axis=1)
     df_merge.drop(columns="season", inplace=True, errors="ignore")
+
+    df_merge["is_weekend"] = 0
+    df_merge["month"] = 12
+    df_merge["days_since_last_match_home"] = 3
+    df_merge["match_importance"] = 0
+    df_merge["goal_avg_diff"] = df_merge['home_team_goal_avg_last_5'] - df_merge['away_team_goal_avg_last_5']
+    df_merge["win_rate_diff"] = df_merge['home_team_last_5_win_rate'] - df_merge['away_team_last_5_win_rate']
+    df_merge["ranking_diff"] = df_merge['home_team_ranking'] - df_merge['away_team_ranking']
+    df_merge["match_day_of_week_encoder"] = 6
+    df_merge["season_phase_encoder"] = 0
+
+    head_columns = [
+        "head_to_head_win_home_team",
+        "head_to_head_draws",
+        "head_to_head_goal_diff",
+    ]
+
+    df_head_values = df_prep[(df_prep["home_team_encoder"] == dict_team_name_id[home_team])
+            &(df_prep["away_team_encoder"] == dict_team_name_id[home_team])
+            ][head_columns]
+
+    if df_head_values.empty:
+        df_merge[head_columns] = 0
+    else:
+        df_merge.loc[0, head_columns] = df_head_values
+
+
     df_merge = df_merge[list_feature_order]
 
     return df_merge
@@ -437,7 +490,7 @@ def predict_per_time(home_team:str,
                      list_seasons:list[int]=None,
                      model=None, 
                      df_prep=None, 
-                     path_team_mapping=None,
+                     path_encoder=None,
                      path_feature_order=None):
     """
     Faz previsões para um jogo específico entre dois times.
@@ -452,7 +505,7 @@ def predict_per_time(home_team:str,
         Modelo treinado.
     df_prep : pd.DataFrame
         DataFrame com os dados preparados.
-    path_team_mapping : str
+    path_encoder : str
         Caminho para o arquivo JSON com o mapeamento dos times.
 
     Returns
@@ -465,15 +518,16 @@ def predict_per_time(home_team:str,
         model = load_model(os.path.join(MODEL_DIR, "logistic_regression_model.pkl"))
     if df_prep is None:
         df_prep = pd.read_csv(FT_DIR)
-    if path_team_mapping is None:
-        path_team_mapping = os.path.join(MODEL_DIR, "team_mapping.json")
+    if path_encoder is None:
+        path_encoder = MODEL_DIR
     if path_feature_order is None:
         path_feature_order = os.path.join(MODEL_DIR, "feature_order.json")
 
     if list_seasons is not None:
         df_prep = df_prep[df_prep["season"].isin(list_seasons)]
 
-    df_input = prepare_input(df_prep, home_team, away_team, path_team_mapping, path_feature_order)
+    df_input = prepare_input(df_prep, home_team, 
+                             away_team, path_encoder, path_feature_order)
     
     # X_pred_scaled = get_data_transform(df_input)
     

@@ -13,9 +13,9 @@ import json
 
 # Definindo diretórios base
 MODEL_DIR = os.path.join('database', 'models')
-LOG_DIR = os.path.join('logs')
+# LOG_DIR = os.path.join('database', 'logs')
 FT_DIR = Path('database', "features")
-LOG_DIR = Path("logs")
+LOG_DIR = Path('database', "logs")
 
 
 def encode_teams(df: pd.DataFrame, path_team_mapping: str) -> pd.DataFrame:

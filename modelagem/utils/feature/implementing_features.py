@@ -16,20 +16,46 @@ from modelagem.utils.feature.create_features import (
     add_season_stats,
     add_temporal_features,
     encode_categorical_features,
+    base_pre_processing
 )
 
 FT_DIR = Path("database", "features")
 
+def selected_features_to_train(df:pd.DataFrame)->pd.DataFrame:
+    drop_columns_catecorical = ["id","country","league","home_team","away_team",
+    "result","psch","pscd","psca","maxch","maxcd","maxca","avgch","avgcd","avgca","bfech","bfecd","datetime",
+    "hash","last_updated", "match_day_of_week", "season_phase"]
 
-def main(df: pd.DataFrame, path_team_mapping: str) -> pd.DataFrame:
+    drop_columns_numerical = ["home_score", "away_score"]
+
+    drop_columns = drop_columns_catecorical
+    drop_columns += drop_columns_numerical
+    
+    return df.drop(columns=drop_columns)
+
+
+def create_first_strategy(df: pd.DataFrame, path_encoder: str) -> pd.DataFrame:
+    success, df = base_pre_processing(df, path_encoder)
+
+
+    logger.debug("Salvando o DataFrame resultante.")
+    os.makedirs(FT_DIR, exist_ok=True)
+    output_path = os.path.join(FT_DIR, 'ft_df.csv')
+    df.to_csv(output_path, index=False)
+    
+    logger.info(f"Feature DataFrame salvo em {output_path}")
+    return True, df
+
+def create_feature(df: pd.DataFrame, path_encoder: str) -> pd.DataFrame:
     """
     Função principal para calcular as features de desempenho dos times.
     
     :param df: DataFrame contendo os dados das partidas.
-    :param path_team_mapping: Caminho do arquivo onde o mapeamento será salvo.
+    :param path_encoder: Caminho do arquivo onde o mapeamento será salvo.
     :return: DataFrame com as novas features adicionadas.
     """
-
+    logger.debug("Inplementando features")
+    
     # Calcula o desempenho recente
     df = get_recent_performance(df)
 
@@ -61,7 +87,13 @@ def main(df: pd.DataFrame, path_team_mapping: str) -> pd.DataFrame:
     df = add_temporal_features(df)
 
     # Codifica os times
-    df = encode_categorical_features(df, path_team_mapping)
+    df = encode_categorical_features(df, path_encoder)
+
+    df.fillna(0, inplace=True)
+
+    # Drop de colunas descenessarias 
+    df = selected_features_to_train(df)
+
 
     logger.debug("Salvando o DataFrame resultante.")
     os.makedirs(FT_DIR, exist_ok=True)

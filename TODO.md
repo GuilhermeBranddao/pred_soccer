@@ -1,5 +1,30 @@
 
-- [ ] Criar funções mais detalhadas
+# Criação de novas funcionalidades
+- [ ] Criar função teste AB de modelos
+- [ ] Criar App intuitiva para realizar predições de partidas utiliza do bons modelos
+- [ ] Criar funções mais proficionais
+- [ ] Criar função para ver quais as variaveis mais impactam positivamente no modelo
+- [ ] Criar funçõo para de treinamento para varios modelos
+- [ ]
+- [ ]
+- [ ]
+
+
+
+# Estudo
+- [ ] Implemntar modelos emsambles
+- [ ] Como saber quais foram as variaveis decisivas que levaram o modelo a realizar a predição
+- [ ]
+- [ ]
+
+
+
+
+
+
+
+
+
 def create_connection(a, shape, order):
     """
     

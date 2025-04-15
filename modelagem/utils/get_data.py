@@ -22,6 +22,7 @@ def get_soccer_data(country:str = "Brazil") -> pd.DataFrame | None:
     pd.DataFrame | None
         Um DataFrame contendo os dados do banco de dados, ou None em caso de erro.
     """
+    logger.debug("Carregando base de dados")
     database_path = "database/soccer_data.db"
     conn = create_connection(database_path)
 
