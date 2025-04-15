@@ -269,7 +269,6 @@ def main(df:pd.DataFrame):
     X_test, y_test = df_test.drop(columns=['winner', 'season']), df_test['winner']
     X_valid, y_valid = df_valid.drop(columns=['winner', 'season']), df_valid['winner']
 
-    return df_train
     # Balanceamento dos dados
     # X_train, y_train = balancear_dados(X=X_train, y=y_train)
 

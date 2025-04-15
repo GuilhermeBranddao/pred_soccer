@@ -69,12 +69,12 @@ def get_soccer_data(country:str = "Brazil") -> pd.DataFrame | None:
 
 
 if __name__ == "__main__":
-    # df = get_soccer_data()
-    # success = base_pre_processing(df)
-    # if success:
-    #     logger.info("Pré-processamento concluído com sucesso!")
-    # else:
-    #     logger.error("Erro no pré-processamento.")
+    df = get_soccer_data()
+    success = base_pre_processing(df)
+    if success:
+        logger.info("Pré-processamento concluído com sucesso!")
+    else:
+        logger.error("Erro no pré-processamento.")
 
     df = pd.read_csv(os.path.join(DATA_DIR, 'ft_df.csv'))
     logger.info("Iniciando treinamento")
