@@ -1,4 +1,8 @@
 import pandas as pd
+import os
+from modelagem.utils.logs import logger
+from pathlib import Path
+
 # from modelagem.feature_eng.match_analysis import get_storage_ranks
 from modelagem.utils.feature.create_features import (
     get_recent_performance,
@@ -13,6 +17,8 @@ from modelagem.utils.feature.create_features import (
     add_temporal_features,
     encode_categorical_features,
 )
+
+FT_DIR = Path("database", "features")
 
 
 def main(df: pd.DataFrame, path_team_mapping: str) -> pd.DataFrame:
@@ -56,5 +62,11 @@ def main(df: pd.DataFrame, path_team_mapping: str) -> pd.DataFrame:
 
     # Codifica os times
     df = encode_categorical_features(df, path_team_mapping)
-   
-    return df
+
+    logger.debug("Salvando o DataFrame resultante.")
+    os.makedirs(FT_DIR, exist_ok=True)
+    output_path = os.path.join(FT_DIR, 'ft_df.csv')
+    df.to_csv(output_path, index=False)
+    
+    logger.info(f"Feature DataFrame salvo em {output_path}")
+    return True, df

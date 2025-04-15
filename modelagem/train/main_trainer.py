@@ -30,12 +30,14 @@ FT_DIR = Path("database", "features")
 
 if __name__ == "__main__":
     df = get_soccer_data()
-    df = main(df, os.path.join(MODEL_DIR, "team_mapping.json"))
+    success, df = main(df, os.path.join(MODEL_DIR, "team_mapping.json"))
+
+    print(df.columns)
     # success = base_pre_processing(df)
-    # if success:
-    #     logger.info("Pré-processamento concluído com sucesso!")
-    # else:
-    #     logger.error("Erro no pré-processamento.")
+    if success:
+        logger.info("Pré-processamento concluído com sucesso!")
+    else:
+        logger.error("Erro no pré-processamento.")
 
     df = pd.read_csv(os.path.join(FT_DIR, 'ft_df.csv'))
     logger.info("Iniciando treinamento")

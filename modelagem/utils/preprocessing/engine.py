@@ -14,7 +14,7 @@ import json
 # Definindo diretórios base
 MODEL_DIR = os.path.join('database', 'models')
 LOG_DIR = os.path.join('logs')
-FT_DIR = Path("features")
+FT_DIR = Path('database', "features")
 LOG_DIR = Path("logs")
 
 

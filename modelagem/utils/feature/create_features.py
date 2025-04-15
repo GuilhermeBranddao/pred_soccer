@@ -583,7 +583,7 @@ def encode_generic(df: pd.DataFrame) -> pd.DataFrame:
     # Label Encoding para resultado (vitória, empate, derrota)
     encoder = LabelEncoder()
     y = encoder.fit_transform(df_encoded['result'])
-    df_encoded["result"] = y
+    df_encoded["winner"] = y
 
     # # One-hot encoding para as demais variáveis categóricas
     # categorical_cols = ['match_day_of_week', 'season_phase']
