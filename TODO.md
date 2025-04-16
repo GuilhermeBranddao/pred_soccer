@@ -5,13 +5,17 @@
 - [ ] Criar funções mais proficionais
 - [ ] Criar função para ver quais as variaveis mais impactam positivamente no modelo
 - [ ] Criar funçõo para de treinamento para varios modelos
-- [ ]
+- [ ] Melhorar a estrurura de feedback de funções
+    - Exemplo: 
+        - err, df = base_pre_processing(df)
+        - O 'err' deve ser um atributo que carrege consigo uma informação relevante caso ocorra algum tipo de erro
+
 - [ ]
 - [ ]
 
 
 
-# Estudo
+# Estudo ML
 - [ ] Implemntar modelos emsambles
 - [ ] Como saber quais foram as variaveis decisivas que levaram o modelo a realizar a predição
 - [ ]
@@ -19,8 +23,9 @@
 
 
 
-
-
+# Criação de testes automatizados
+- [ ] Estar se as funções estão fazendo o que deveria ser feito
+    - Exemplo: testar a função 'encode_categorical_features' ela deve realizar o encode de certas features e salvar em suas respectivas pastas
 
 
 

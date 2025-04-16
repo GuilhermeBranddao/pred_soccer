@@ -4,96 +4,35 @@ from modelagem.utils.logs import logger
 from pathlib import Path
 
 # from modelagem.feature_eng.match_analysis import get_storage_ranks
-from modelagem.utils.feature.create_features import (
-    get_recent_performance,
-    add_home_away_stats,
-    add_head_to_head_features,
-    add_context_features,
-    update_team_ranking,
-    check_and_create_features,
-    add_diff_features,
-    calc_momentum_features,
-    add_season_stats,
-    add_temporal_features,
-    encode_categorical_features,
-    base_pre_processing
+from modelagem.utils.feature.encode import (
+    encode_categorical_features, 
 )
+
+
+from modelagem.feature_eng.strategy.basic import strategy_basic
 
 FT_DIR = Path("database", "features")
 
-def selected_features_to_train(df:pd.DataFrame)->pd.DataFrame:
-    drop_columns_catecorical = ["id","country","league","home_team","away_team",
-    "result","psch","pscd","psca","maxch","maxcd","maxca","avgch","avgcd","avgca","bfech","bfecd","datetime",
-    "hash","last_updated", "match_day_of_week", "season_phase"]
-
-    drop_columns_numerical = ["home_score", "away_score"]
-
-    drop_columns = drop_columns_catecorical
-    drop_columns += drop_columns_numerical
+def drop_unwanted_features(df: pd.DataFrame, drop_columns:list=None) -> pd.DataFrame:
     
-    return df.drop(columns=drop_columns)
+    drop_columns = drop_columns or []
+
+    return df.drop(columns=[col for col in drop_columns if col in df.columns])
+
+def prep_data_to_save(df: pd.DataFrame, path_encoder: str, drop_columns:list[str]) -> pd.DataFrame:
 
 
-def create_first_strategy(df: pd.DataFrame, path_encoder: str) -> pd.DataFrame:
-    success, df = base_pre_processing(df, path_encoder)
-
-
-    logger.debug("Salvando o DataFrame resultante.")
-    os.makedirs(FT_DIR, exist_ok=True)
-    output_path = os.path.join(FT_DIR, 'ft_df.csv')
-    df.to_csv(output_path, index=False)
-    
-    logger.info(f"Feature DataFrame salvo em {output_path}")
-    return True, df
-
-def create_feature(df: pd.DataFrame, path_encoder: str) -> pd.DataFrame:
-    """
-    Função principal para calcular as features de desempenho dos times.
-    
-    :param df: DataFrame contendo os dados das partidas.
-    :param path_encoder: Caminho do arquivo onde o mapeamento será salvo.
-    :return: DataFrame com as novas features adicionadas.
-    """
-    logger.debug("Inplementando features")
-    
-    # Calcula o desempenho recente
-    df = get_recent_performance(df)
-
-    # Adiciona estatísticas de casa e fora
-    df = add_home_away_stats(df)
-
-    # Adiciona estatísticas de confronto direto
-    df = add_head_to_head_features(df)
-
-    # Adiciona features contextuais
-    df = add_context_features(df)
-
-    # Atualiza o ranking dos times
-    df = update_team_ranking(df)
-
-    # Verifica e cria as features necessárias
-    check_and_create_features(df)
-
-    # Adiciona features de diferença
-    df = add_diff_features(df)
-
-    # Calcula as features de momentum
-    df = calc_momentum_features(df, is_home=False, team_col='home_team')
-    df = calc_momentum_features(df, is_home=False, team_col='away_team')
-
-    # Adiciona estatísticas da temporada
-    df = add_season_stats(df)
-    # Adiciona features temporais
-    df = add_temporal_features(df)
+    # Se ok deve salvar o que for necessario para realizar predições
+    # encodes, features, ....
 
     # Codifica os times
-    df = encode_categorical_features(df, path_encoder)
-
+    df = encode_categorical_features(df, path_save_encoder=path_encoder)
     df.fillna(0, inplace=True)
+    # Drop de colunas descenessarias
 
-    # Drop de colunas descenessarias 
-    df = selected_features_to_train(df)
+    df = drop_unwanted_features(df, drop_columns=drop_columns)
 
+    print(df.columns)
 
     logger.debug("Salvando o DataFrame resultante.")
     os.makedirs(FT_DIR, exist_ok=True)
@@ -102,3 +41,71 @@ def create_feature(df: pd.DataFrame, path_encoder: str) -> pd.DataFrame:
     
     logger.info(f"Feature DataFrame salvo em {output_path}")
     return True, df
+
+
+
+def create_feature_first_strategy(df: pd.DataFrame, path_encoder: str) -> pd.DataFrame:
+    success, df = 'base_pre_processing'(df)
+
+    if not success:
+        return False, pd.DataFrame()
+
+    # Se ok deve salvar o que for necessario para realizar predições
+    # encodes, features, ....
+
+    # Codifica os times
+    df = encode_categorical_features(df, path_save_encoder=path_encoder)
+    df.fillna(0, inplace=True)
+    # Drop de colunas descenessarias
+
+    drop_columns = ['match_name', 'datetime', 'home_team', 'away_team', 
+  'home_score', 'away_score', 'h_match_points', 'a_match_points',
+  'id', 'country', 'league', 'season', 'result', 'psch', 'pscd', 'psca',
+       'maxch', 'maxcd', 'maxca', 'avgch', 'avgcd', 'avgca', 'bfech', 'bfecd',
+       'hash', 'last_updated']
+    df = drop_unwanted_features(df, drop_columns=drop_columns)
+
+    logger.debug("Salvando o DataFrame resultante.")
+    os.makedirs(FT_DIR, exist_ok=True)
+    output_path = os.path.join(FT_DIR, 'ft_df.csv')
+    df.to_csv(output_path, index=False)
+    
+    logger.info(f"Feature DataFrame salvo em {output_path}")
+    return True, df
+
+def strategy_basic(df: pd.DataFrame, path_encoder: str) -> pd.DataFrame:
+    success, df = 'base_pre_processing'(df)
+    if not success:
+        return False, pd.DataFrame()
+
+    df = encode_categorical_features(df, path_encoder)
+    df.fillna(0, inplace=True)
+    df = drop_unwanted_features(df)
+    return True, df
+
+
+def strategy_with_goal_stats(df: pd.DataFrame, path_encoder: str) -> pd.DataFrame:
+    success, df = 'base_pre_processing'(df)
+    if not success:
+        return False, pd.DataFrame()
+
+    df = encode_categorical_features(df, path_encoder)
+    # df = add_goal_averages(df)  # Exemplo fictício
+    df.fillna(0, inplace=True)
+    df = drop_unwanted_features(df)
+    return True, df
+
+
+def strategy_experimental(df: pd.DataFrame, path_encoder: str) -> pd.DataFrame:
+    success, df = 'base_pre_processing'(df)
+    if not success:
+        return False, pd.DataFrame()
+
+    df = encode_categorical_features(df, path_encoder)
+    # df = add_goal_averages(df)
+    # df = add_win_rates(df)
+    # df = calculate_ranking(df)
+    df.fillna(0, inplace=True)
+    df = drop_unwanted_features(df)
+    return True, df
+
