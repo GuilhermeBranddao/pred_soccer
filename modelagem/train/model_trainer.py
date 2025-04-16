@@ -16,17 +16,18 @@ from typing import Union, List, Dict
 from modelagem.utils.metrics import metrics_per_class
 from sklearn.model_selection import train_test_split
 import json
-
+from modelagem.settings.config import Settings
+config = Settings()
 # BASE_DIR = os.path.dirname(Path(__file__).resolve().parent.parent)
-# DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
-FT_DIR = Path("database", "features", 'ft_df.csv')
-LOG_DIR = os.path.join('database', 'logs')
+# # DATA_DIR = os.path.join(BASE_DIR, 'feature_eng', 'data', 'ft_df.csv')
+# FT_DIR = Path("database", "features", 'ft_df.csv')
+# LOG_DIR = os.path.join('database', 'logs')
 
 
-# MODEL_DIR = os.path.join('database', 'models')
-MODEL_DIR = Path("database", "models")  # Diretório onde os modelos serão salvos
-MODEL_DIR.mkdir(exist_ok=True)  # Garante que o diretório exista
-# df = pd.read_csv(FT_DIR)
+# # MODEL_DIR = os.path.join('database', 'models')
+# MODEL_DIR = Path("database", "models")  # Diretório onde os modelos serão salvos
+# MODEL_DIR.mkdir(exist_ok=True)  # Garante que o diretório exista
+# # df = pd.read_csv(FT_DIR)
 
 def balancear_dados(X, y, mode='subamostragem', sampling_strategy='auto', random_state=42):
     """
@@ -238,8 +239,8 @@ def split_data(df: pd.DataFrame, test_size: float = 0.3, valid_year: int = 2024)
         df_valid : Dados de validação (apenas anos >= valid_year).
     """
     logger.info(f"Dividindo os dados com valid_year={valid_year} e test_size={test_size}...")
-
     # Separa os dados futuros para validação
+    df['season'] = df['season'].astype(int) 
     df_valid = df[df['season'] >= valid_year]
 
     # Filtra os dados antes do ano de validação
@@ -261,15 +262,13 @@ def main(df:pd.DataFrame):
     df : pd.DataFrame
         DataFrame contendo os dados.
     """
-
-
     # Divisão dos dados
     df_train, df_test, df_valid = split_data(df)
 
     # Separação de features e rótulos
-    X_train, y_train = df_train.drop(columns=['winner', 'season']), df_train['winner']
-    X_test, y_test = df_test.drop(columns=['winner', 'season']), df_test['winner']
-    X_valid, y_valid = df_valid.drop(columns=['winner', 'season']), df_valid['winner']
+    X_train, y_train = df_train.drop(columns=['result_encoded', 'season']), df_train['result_encoded']
+    X_test, y_test = df_test.drop(columns=['result_encoded', 'season']), df_test['result_encoded']
+    X_valid, y_valid = df_valid.drop(columns=['result_encoded', 'season']), df_valid['result_encoded']
 
     # Balanceamento dos dados
     # X_train, y_train = balancear_dados(X=X_train, y=y_train)
@@ -286,12 +285,11 @@ def main(df:pd.DataFrame):
     model = train(model, X_train_scaled, X_test_scaled, y_train, y_test)
 
     # Salva ordem das features appos o treinamento
-    with open(os.path.join(MODEL_DIR, "feature_order.json"), "w") as f: 
+    with open(os.path.join(config.MAPPING_DIR, "feature_order.json"), "w") as f: 
         json.dump(list(X_train.columns), f, indent=4)
 
-    print(X_train.columns)
     # Salvar o modelo treinado
-    model_filename = os.path.join(MODEL_DIR, "logistic_regression_model.pkl")
+    model_filename = os.path.join(config.MODEL_DIR, "logistic_regression_model.pkl")
     with open(model_filename, 'wb') as file:
         pickle.dump(model, file)
 
@@ -351,17 +349,17 @@ def load_json(path:str):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def get_team_mappings(path_team_mapping:str) -> tuple[dict, dict]:
+def get_teams_mapping(path_teams_mapping:str) -> tuple[dict, dict]:
     """
     Carrega o mapeamento de times a partir de um arquivo JSON.
-    :param path_team_mapping: str
+    :param path_teams_mapping: str
         Caminho do arquivo JSON com o mapeamento de times.
     :return: tuple
         - dict_team_name_to_id: dicionário com o mapeamento de nomes de times para IDs.
         - dict_id_team_name: dicionário com o mapeamento de IDs para nomes de times.
     """
 
-    dict_team_name_to_id = load_json(path_team_mapping)
+    dict_team_name_to_id = load_json(path_teams_mapping)
 
     return (
         {k: v for k, v in dict_team_name_to_id.items()},
@@ -376,11 +374,9 @@ def get_drop_columns():
         "{type}_wins", "{type}_draws", "{type}_losses", "{type}_win_streak",
         "{type}_loss_streak", "{type}_draw_streak", "winner"
     ]
-    drop_at = [col.format(type="at") for col in template] + ["away_team_encoder"]
-    drop_ht = [col.format(type="ht") for col in template] + ["home_team_encoder"]
+    drop_at = [col.format(type="at") for col in template] + ["away_team_encoded"]
+    drop_ht = [col.format(type="ht") for col in template] + ["home_team_encoded"]
     return drop_ht, drop_at
-
-from modelagem.utils.feature.create_features import add_head_to_head_features
 
 def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_encoder:str, path_feature_order:str) -> pd.DataFrame:
     """
@@ -414,7 +410,7 @@ def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_encod
 
     list_feature_order:list[str] = load_json(path_feature_order)
 
-    dict_team_name_id, dict_id_team_name = get_team_mappings(os.path.join(path_encoder, "team_mapping.json"))
+    dict_team_name_id, dict_id_team_name = get_teams_mapping(os.path.join(path_encoder, "teams_mapping.json"))
 
     if is_numeric(home_team):
         home_team = dict_id_team_name.get(int(float(home_team)))
@@ -435,8 +431,8 @@ def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_encod
         "goal_avg_diff",
         "win_rate_diff",
         "ranking_diff",
-        "match_day_of_week_encoder",
-        "season_phase_encoder",
+        "match_day_of_week_encoded",
+        "season_phase_encoded",
         "head_to_head_win_home_team",
         "head_to_head_draws",
         "head_to_head_goal_diff",
@@ -449,8 +445,8 @@ def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_encod
     columns_with_away += drop_mix_columns
 
     # TDOD: mesmo esquema drop_columns_at e drop_columns_ht
-    df_home = df_prep[df_prep["home_team_encoder"] == dict_team_name_id[home_team]].drop(columns=columns_with_home).copy()
-    df_away = df_prep[df_prep["away_team_encoder"] == dict_team_name_id[away_team]].drop(columns=columns_with_away).copy()
+    df_home = df_prep[df_prep["home_team_encoded"] == dict_team_name_id[home_team]].drop(columns=columns_with_home).copy()
+    df_away = df_prep[df_prep["away_team_encoded"] == dict_team_name_id[away_team]].drop(columns=columns_with_away).copy()
 
     df_merge = pd.concat([df_home.iloc[[0]].reset_index(drop=True), df_away.iloc[[0]].reset_index(drop=True)], axis=1)
     df_merge.drop(columns="season", inplace=True, errors="ignore")
@@ -462,8 +458,8 @@ def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_encod
     df_merge["goal_avg_diff"] = df_merge['home_team_goal_avg_last_5'] - df_merge['away_team_goal_avg_last_5']
     df_merge["win_rate_diff"] = df_merge['home_team_last_5_win_rate'] - df_merge['away_team_last_5_win_rate']
     df_merge["ranking_diff"] = df_merge['home_team_ranking'] - df_merge['away_team_ranking']
-    df_merge["match_day_of_week_encoder"] = 6
-    df_merge["season_phase_encoder"] = 0
+    df_merge["match_day_of_week_encoded"] = 6
+    df_merge["season_phase_encoded"] = 0
 
     head_columns = [
         "head_to_head_win_home_team",
@@ -471,8 +467,8 @@ def prepare_input(df_prep:pd.DataFrame, home_team:str, away_team:str, path_encod
         "head_to_head_goal_diff",
     ]
 
-    df_head_values = df_prep[(df_prep["home_team_encoder"] == dict_team_name_id[home_team])
-            &(df_prep["away_team_encoder"] == dict_team_name_id[home_team])
+    df_head_values = df_prep[(df_prep["home_team_encoded"] == dict_team_name_id[home_team])
+            &(df_prep["away_team_encoded"] == dict_team_name_id[home_team])
             ][head_columns]
 
     if df_head_values.empty:
@@ -515,13 +511,13 @@ def predict_per_time(home_team:str,
     """
 
     if model is None:
-        model = load_model(os.path.join(MODEL_DIR, "logistic_regression_model.pkl"))
+        model = load_model(os.path.join(config.MODEL_DIR, "logistic_regression_model.pkl"))
     if df_prep is None:
-        df_prep = pd.read_csv(FT_DIR)
+        df_prep = pd.read_csv(config.FT_DIR)
     if path_encoder is None:
-        path_encoder = MODEL_DIR
+        path_encoder = config.MAPPING_DIR
     if path_feature_order is None:
-        path_feature_order = os.path.join(MODEL_DIR, "feature_order.json")
+        path_feature_order = os.path.join(config.MAPPING_DIR, "feature_order.json")
 
     if list_seasons is not None:
         df_prep = df_prep[df_prep["season"].isin(list_seasons)]

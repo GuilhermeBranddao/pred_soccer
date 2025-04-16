@@ -8,71 +8,81 @@ from pathlib import Path
 from modelagem.utils.logs import logger
 from modelagem.utils.get_data import get_soccer_data
 from modelagem.train import model_trainer
-from modelagem.utils.feature.implementing_features import (
-    create_feature_first_strategy,
-    create_feature_segund_strategy,
-    # strategy_basic,
-    strategy_with_goal_stats,
-    strategy_experimental,
-    )
+
 # from modelagem.utils.feature.encode import base_pre_processing
-from modelagem.feature_eng.strategy.basic import strategy_basic
-from modelagem.feature_eng.strategy.basic import strategy_basic
+from modelagem.features.strategies.basic import strategy_basic
+from modelagem.features.strategies.experimental import strategy_experimental
 
 # Definindo diretórios base
-DATA_DIR = os.path.join('feature_eng', 'data')
-MODEL_DIR = os.path.join('database', 'models')
-LOG_DIR = os.path.join('database', 'logs')
-# Diretórios
-FT_DIR = Path("database", "features")
+# DATA_DIR = os.path.join('feature_eng', 'data')
+# MODEL_DIR = os.path.join('database', 'models')
+# LOG_DIR = os.path.join('database', 'logs')
+# # Diretórios
+# FT_DIR = Path("database", "features")
+from modelagem.settings.config import Settings
+config = Settings()
 
 FEATURE_STRATEGIES:list[dict] = [
     {"feature_name":"first", 
-     "func_feature":create_feature_first_strategy, 
-     "coluns_request":[],
-     "drop_unwanted_features":[],
+     "func_feature":strategy_experimental.main, 
+     "coluns_request":["season", 'home_team_last_5_win_rate', 'away_team_last_5_win_rate',
+       'home_team_goal_avg_last_5', 'away_team_goal_avg_last_5',
+       'home_team_goals_conceded_last_5', 'away_team_goals_conceded_last_5',
+       'home_team_form', 'away_team_form', 'home_team_home_win_rate',
+       'away_team_away_win_rate', 'home_team_home_goal_avg',
+       'away_team_away_goal_avg', 'head_to_head_win_home_team',
+       'head_to_head_draws', 
+       'head_to_head_goal_diff', 'is_weekend', 'month',
+       'days_since_last_match_home', 'match_importance', 'home_team_ranking',
+       'away_team_ranking', 'goal_avg_diff', 'win_rate_diff', 'ranking_diff',
+       'away_team_streak', 'away_team_last_match_result',
+       'away_team_points_last_3', 'away_team_score_diff_last_5',
+       'home_team_total_goals_scored_season',
+       'home_team_total_goals_conceded_season',
+       'home_team_matches_played_season', 'home_team_goal_diff_season',
+       'away_team_total_goals_scored_season',
+       'away_team_total_goals_conceded_season', 'home_team_encoded',
+       'away_team_encoded', 'match_day_of_week_encoded',
+       'season_phase_encoded', "result_encoded"]
      },
     {"feature_name":"basic", 
     "func_feature":strategy_basic.main, 
-    "coluns_request":[],
-    "drop_unwanted_features":[
-        "id", "country", "league", "home_team", "away_team",
-        "result", "psch", "pscd", "psca", "maxch", "maxcd", "maxca",
-        "avgch", "avgcd", "avgca", "bfech", "bfecd", "datetime",
-        "hash", "last_updated", "match_day_of_week", "season_phase"
-    ]},
-    # {"feature_name":"basic", 
-    # "func_feature":strategy_basic, 
-    # "coluns_request":[],
-    # "drop_unwanted_features":[],
-    # },
-    {"feature_name":"goal_stats", 
-    "func_feature":strategy_with_goal_stats, 
-    "coluns_request":[],
-    "drop_unwanted_features":[],
-    },
-    {"feature_name":"experimental", 
-    "func_feature":strategy_experimental, 
-    "coluns_request":[],
-    "drop_unwanted_features":[],
-    },
+    "coluns_request":['season', 'ht_rank', 'ht_ls_rank', 'ht_days_ls_match', 'ht_points', 'ht_l_points',
+       'ht_l_wavg_points', 'ht_goals', 'ht_l_goals', 'ht_l_wavg_goals',
+       'ht_goals_sf', 'ht_l_goals_sf', 'ht_l_wavg_goals_sf', 'ht_wins',
+       'ht_draws', 'ht_losses', 'ht_win_streak', 'ht_loss_streak',
+       'ht_draw_streak', 'at_rank', 'at_ls_rank', 'at_days_ls_match',
+       'at_points', 'at_l_points', 'at_l_wavg_points', 'at_goals',
+       'at_l_goals', 'at_l_wavg_goals', 'at_goals_sf', 'at_l_goals_sf',
+       'at_l_wavg_goals_sf', 'at_wins', 'at_draws', 'at_losses',
+       'at_win_streak', 'at_loss_streak', 'at_draw_streak',
+       'home_team_encoded', 'away_team_encoded', 'result_encoded']}
 ]
+
+def run_feature_engineering(df, strategy_idx=0):
+    strategy = FEATURE_STRATEGIES[strategy_idx]
+    func_feature = strategy["func_feature"]
+    columns_request = strategy["coluns_request"]
+    return func_feature(df, 
+                        path_encoder=config.MAPPING_DIR,
+                        columns_request=columns_request)
+
+def load_features():
+    return pd.read_csv(os.path.join(config.FT_DIR, 'ft_df.csv'))
+
+def train_model(df):
+    model_trainer.main(df)
+
 
 if __name__ == "__main__":
     df = get_soccer_data()
-    # success, df_prep = base_pre_processing(df)
+    success, df_features = run_feature_engineering(df)
 
-
-    featute_strategies = FEATURE_STRATEGIES[1]
-    func_feature = featute_strategies.get("func_feature")
-
-    success, df_prep = func_feature(df, path_encoder=MODEL_DIR)
     if success:
         logger.info("Pré-processamento concluído com sucesso!")
+        # df_features = load_features()
+        logger.info("Iniciando treinamento")
+        train_model(df_features)
     else:
         logger.error("Erro no pré-processamento.")
 
-    logger.debug("Carregando base de dados trataba (csv)")
-    df = pd.read_csv(os.path.join(FT_DIR, 'ft_df.csv'))
-    logger.info("Iniciando treinamento")
-    model_trainer.main(df)

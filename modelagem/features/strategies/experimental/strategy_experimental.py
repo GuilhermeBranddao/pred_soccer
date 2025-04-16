@@ -1,11 +1,12 @@
 from modelagem.utils.logs import logger
 import pandas as pd
-from modelagem.utils.feature.implementing_features import prep_data_to_save
+from modelagem.utils.feature.tool_kit import prep_data_to_save
 from modelagem.utils.feature.encode import (
     encode_categorical_features, 
 )
+from pathlib import Path
 # from modelagem.feature_eng.match_analysis import get_storage_ranks
-from modelagem.feature_eng.strategy.experimental.create_features import (
+from modelagem.features.strategies.experimental.create_features import (
     get_recent_performance,
     add_home_away_stats,
     add_head_to_head_features,
@@ -19,8 +20,7 @@ from modelagem.feature_eng.strategy.experimental.create_features import (
     # base_pre_processing
 )
 
-
-def main(df: pd.DataFrame, path_encoder: str) -> None:
+def main(df: pd.DataFrame, path_encoder: Path, columns_request: list[str] = None) -> tuple[bool, str | pd.DataFrame]:
     """
     Função principal para calcular as features de desempenho dos times.
     
@@ -64,17 +64,10 @@ def main(df: pd.DataFrame, path_encoder: str) -> None:
     df = encode_categorical_features(df, path_save_encoder=path_encoder)
     df.fillna(0, inplace=True)
 
+    columns_request = columns_request or []
 
-    drop_columns_categorical = [
-        "id", "country", "league", "home_team", "away_team",
-        "result", "psch", "pscd", "psca", "maxch", "maxcd", "maxca",
-        "avgch", "avgcd", "avgca", "bfech", "bfecd", "datetime",
-        "hash", "last_updated", "match_day_of_week", "season_phase"
-    ]
-    drop_columns_numerical = ["home_score", "away_score"]
-    drop_columns = drop_columns_categorical + drop_columns_numerical
+    err, df = prep_data_to_save(df=df, 
+                                    path_encoder=path_encoder, 
+                                    columns_request=columns_request)
 
-
-    err, df = prep_data_to_save(df, path_encoder, drop_columns) 
-
-    return None
+    return err, df

@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 from modelagem.utils.logs import logger
-from modelagem.utils.feature.implementing_features import prep_data_to_save
+from modelagem.utils.feature.tool_kit import prep_data_to_save
 from pathlib import Path
 
-def main(df:pd.DataFrame, path_encoder:Path)->tuple[bool, str|pd.DataFrame]:
+def main(df:pd.DataFrame, path_encoder:Path, columns_request: list[str] = None) -> tuple[bool, str | pd.DataFrame]:
     """
     Função para pré-processar os dados de futebol.
     Ela realiza as seguintes etapas:
@@ -34,28 +34,14 @@ def main(df:pd.DataFrame, path_encoder:Path)->tuple[bool, str|pd.DataFrame]:
         df['match_name'] = df['home_team'] + ' - ' + df['away_team']
         df['datetime'] = pd.to_datetime(df['datetime'])
 
-        # Selecionando colunas importantes
-        # df = df[["season", "datetime", "home_team", "away_team", 
-        #          "home_score", "away_score", "result", "match_name"]]
-
         # Convertendo colunas para inteiro
         to_int = ['season', 'home_score', 'away_score']
         df[to_int] = df[to_int].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
 
-        # Encoding dos times
-        # logger.debug("Iniciando o encoding dos times.")
-        # df = encode_teams(df,
-        #                   path_team_mapping=os.path.join(MODEL_DIR, "team_mapping.json"))
 
         # Calculando pontos e resultado das partidas
         logger.debug("Iniciando o cálculo dos pontos e resultados das partidas.")
         df = calculate_match_points(df)
-
-        # Reordenando colunas
-        # cols_order = ['season', 'datetime', 'match_name', 'home_team', 'away_team',
-        #               'home_team_encoder', 'away_team_encoder', 'winner', 'home_score', 
-        #               'away_score', 'h_match_points', 'a_match_points']
-        # df = df[cols_order]
 
         # Feature Engineering
         logger.debug("Iniciando o feature engineering.")
@@ -69,21 +55,17 @@ def main(df:pd.DataFrame, path_encoder:Path)->tuple[bool, str|pd.DataFrame]:
         df[at_cols] = df.apply(lambda x: create_main_cols(x, x.away_team, df, df_storage_ranks), axis=1, result_type='expand')
 
         # Removendo colunas desnecessárias
-        # df.drop(columns=['match_name', 'datetime', 'home_team', 'away_team', 
-        #                  'home_score', 'away_score', 'h_match_points', 'a_match_points'], inplace=True)
 
         df.fillna(-33, inplace=True)  # Preenchendo valores ausentes
 
+        columns_request = columns_request or []
 
-        drop_columns = ["winner", 'match_name', 'datetime', 'home_team', 'away_team', 
-            'home_score', 'away_score', 'h_match_points', 'a_match_points',
-            'id', 'country', 'league', 'season', 'result', 'psch', 'pscd', 'psca',
-                'maxch', 'maxcd', 'maxca', 'avgch', 'avgcd', 'avgca', 'bfech', 'bfecd',
-                'hash', 'last_updated']
-        prep_data_to_save(df=df, path_encoder=path_encoder, drop_columns=drop_columns)
+        err, df = prep_data_to_save(df=df, 
+                                    path_encoder=path_encoder, 
+                                    columns_request=columns_request)
 
         #logger.info(f"Implementação de feature finalizado")
-        #return True, df
+        return err, df
 
     except Exception as e:
         logger.error(f"Erro no pré-processamento: {e}", exc_info=True)

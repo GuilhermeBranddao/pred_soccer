@@ -4,18 +4,21 @@ import pandas as pd
 from pathlib import Path
 from sklearn.preprocessing import LabelEncoder
 import pandas as pd
-from modelagem.feature_eng.match_analysis import get_storage_ranks, create_main_cols
+from modelagem.features.match_analysis import get_storage_ranks, create_main_cols
 from modelagem.utils.logs import logger
 # Função para encoding dos times
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 import json
 
-# Definindo diretórios base
-MODEL_DIR = os.path.join('database', 'models')
-# LOG_DIR = os.path.join('database', 'logs')
-FT_DIR = Path('database', "features")
-LOG_DIR = Path('database', "logs")
+from modelagem.settings.config import Settings
+config = Settings()
+
+# # Definindo diretórios base
+# MODEL_DIR = os.path.join('database', 'models')
+# # LOG_DIR = os.path.join('database', 'logs')
+# FT_DIR = Path('database', "features")
+# LOG_DIR = Path('database', "logs")
 
 
 def encode_teams(df: pd.DataFrame, path_team_mapping: str) -> pd.DataFrame:
@@ -124,7 +127,7 @@ def base_pre_processing(df:pd.DataFrame)->tuple[bool, str|pd.DataFrame]:
         # Encoding dos times
         logger.debug("Iniciando o encoding dos times.")
         df = encode_teams(df,
-                          path_team_mapping=os.path.join(MODEL_DIR, "team_mapping.json"))
+                          path_team_mapping=os.path.join(config.MAPPING_DIR, "team_mapping.json"))
 
         # Calculando pontos e resultado das partidas
         logger.debug("Iniciando o cálculo dos pontos e resultados das partidas.")
@@ -156,8 +159,8 @@ def base_pre_processing(df:pd.DataFrame)->tuple[bool, str|pd.DataFrame]:
         # Salvando resultados
 
         logger.debug("Salvando o DataFrame resultante.")
-        os.makedirs(FT_DIR, exist_ok=True)
-        output_path = os.path.join(FT_DIR, 'ft_df.csv')
+        os.makedirs(config.FT_DIR, exist_ok=True)
+        output_path = os.path.join(config.FT_DIR, 'ft_df.csv')
         df.to_csv(output_path, index=False)
         
         logger.info(f"Feature DataFrame salvo em {output_path}")
