@@ -197,3 +197,62 @@ def get_metrics_multiclass(y_pred:list, y_true:list):
         dict_precision[classe] = dict_metrics_per_class
 
     return dict_precision
+
+
+from typing import Tuple
+
+def get_binary_confusion_counts(y_true, y_pred) -> Tuple[int, int, int, int]:
+    """
+    Retorna os valores de TP, TN, FP e FN para classificação binária.
+    
+    Args:
+        y_true: rótulos reais
+        y_pred: rótulos preditos
+
+    Returns:
+        Tuple com (tp, tn, fp, fn)
+    """
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+
+    tp = int(((y_pred == 1) & (y_true == 1)).sum())
+    tn = int(((y_pred == 0) & (y_true == 0)).sum())
+    fp = int(((y_pred == 1) & (y_true == 0)).sum())
+    fn = int(((y_pred == 0) & (y_true == 1)).sum())
+
+    return tp, tn, fp, fn
+
+from collections import defaultdict
+import numpy as np
+from typing import Dict
+
+def get_multiclass_confusion_counts(y_true, y_pred) -> Dict[int, Dict[str, int]]:
+    """
+    Retorna TP, TN, FP, FN para cada classe individualmente.
+    
+    Args:
+        y_true: rótulos reais
+        y_pred: rótulos preditos
+
+    Returns:
+        Dicionário com métricas por classe: {classe: {tp, tn, fp, fn}}
+    """
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    unique_classes = np.unique(np.concatenate((y_true, y_pred)))
+    results = {}
+
+    for cls in unique_classes:
+        tp = int(((y_pred == cls) & (y_true == cls)).sum())
+        fp = int(((y_pred == cls) & (y_true != cls)).sum())
+        fn = int(((y_pred != cls) & (y_true == cls)).sum())
+        tn = int(((y_pred != cls) & (y_true != cls)).sum())
+
+        results[cls] = {
+            "tp": tp,
+            "fp": fp,
+            "fn": fn,
+            "tn": tn
+        }
+
+    return results

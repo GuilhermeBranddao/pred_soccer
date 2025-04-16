@@ -59,7 +59,7 @@ FEATURE_STRATEGIES:list[dict] = [
        'home_team_encoded', 'away_team_encoded', 'result_encoded']}
 ]
 
-def run_feature_engineering(df, strategy_idx=0):
+def run_feature_engineering(df, strategy_idx=1):
     strategy = FEATURE_STRATEGIES[strategy_idx]
     func_feature = strategy["func_feature"]
     columns_request = strategy["coluns_request"]
